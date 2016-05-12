@@ -1,0 +1,27 @@
+doctype html
+html
+  head
+    title 文件列表
+    meta(charset="utf-8")
+    meta(http-equiv="X-UA-Compatible", content="IE=edge")
+    meta(name="viewport", content="width=device-width, initial-scale=1")
+    meta(name="author", content="blues")
+    link(rel="stylesheet", type="text/css", href="#{viewHelper.getAppPath()}/css/bootstrap.min.css")
+    link(rel="stylesheet", type="text/css", href="#{viewHelper.getAppPath()}/css/widget.css")
+    script(src="#{viewHelper.getAppPath()}/js/jquery.min.js")
+    script(src="#{viewHelper.getAppPath()}/js/bootstrap.min.js")
+  body
+    .container
+      .utitle 上传文件列表
+    for file in files 
+      #content
+        .templatemo-content-widget.white-bg
+          h2 
+            a(href="#{viewHelper.getAppPath()}/upload/#{file.getName()}", target="_blank") #{file.getName()}
+          p
+            label
+              span
+                #{viewHelper.getFormattedSize(file.length())} , 
+            label
+              span
+                #{viewHelper.getFormattedDate(file.lastModified())}

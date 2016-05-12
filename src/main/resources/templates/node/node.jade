@@ -1,0 +1,240 @@
+extends ../layout/app
+
+block content
+  h1#group_info
+  p.toolbar
+    a(class="create btn btn-success", href="javascript:")
+      i(class="glyphicon glyphicon-plus") 新增
+    span.alert
+  table(id="table", class="table-no-bordered", data-show-refresh="true", data-show-columns="true",
+    data-striped="true", data-show-toggle="true", data-query-params-type="", data-query-params="queryParams",
+    data-toolbar=".toolbar", data-page-list="[10, 20, 50]", data-pagination="true", data-side-pagination="server")
+    thead
+      th(data-formatter="runningFormatter") No.
+      th(data-field="id", data-align="center", data-visible="false") ID
+      th(data-field="startMac", data-align="center", data-sortable="true") 起始MAC地址(设备ID)
+      th(data-field="endMac", data-align="center", data-sortable="true") 结束MAC地址(设备ID)
+      th(data-field="nodeCreatedAt", data-align="center", data-visible="false", data-sortable="true", data-sort-order="desc") 创建于
+      th(data-field="description", data-align="center") 描述
+      th(data-field="action", data-align="center", data-formatter="actionFormatter", data-events="actionEvents") 操作
+
+block modal
+  .modal-dialog
+    .modal-content
+      form.form-horizontal.m-t.required-validate#imageForm(autocomplete="off", novalidate="novalidate")
+        .modal-header
+          button(type="button", class="close", data-dismiss="modal", aria-label="Close")
+            span(aria-hidden="true") &times;
+          h4.modal-title
+        .modal-body.form-horizontal.m-t.required-validate
+          .form-group
+            label.col-sm-3.control-label 起始MAC地址 :
+            .col-sm-8
+              input(type="text", class="form-control", name="startMac", id="startMac")
+          .form-group
+            label.col-sm-3.control-label 结束MAC地址 :
+            .col-sm-8
+              input(type="text", class="form-control", name="endMac", id="endMac")
+          .form-group
+            label.col-sm-3.control-label 描述 :
+            .col-sm-8
+              input(type="text", class="form-control", name="description", id="description")
+        .modal-footer
+          button(type="button", class="btn btn-default", data-dismiss="modal") 关闭
+          button(type="button", class="btn btn-primary submit") 提交
+
+block scripts
+  script(type='text/javascript').
+    var NODE_SHOW = "show/";
+    var NODE_NEW = "new/";
+    var NODE_DELETE = "delete/";
+    var _csrf = '#{_csrf.token}';
+    var group = Url.queryString("group");
+
+    $("title").html("设备列表");
+    var $table = $('#table').bootstrapTable({
+      height: getHeight(),
+      url: NODE_SHOW,
+      formatShowingRows : formatShowingRows,
+      formatRecordsPerPage : formatRecordsPerPage
+      })
+
+
+    $(window).resize(function () {
+      $table.bootstrapTable('resetView', {
+        height: getHeight()
+      });
+    });
+
+    var $modal = $('#modal').modal({show: false});
+    var $alert = $('.alert').hide();
+
+    $.validator.setDefaults({
+      onkeyup: function (element, event) {
+        if (event.which === 9 && this.elementValue(element) === "") {
+          return;
+        } else {
+          this.element(element);
+        }
+      }
+    });
+
+    $.validator.addMethod("BigOne", function(value, element, param) {
+      if(value.toLocaleLowerCase() < $("#startMac").val().toLocaleLowerCase()) {
+        return false;
+      }
+      else {
+        return true;
+      }
+    });
+
+
+    $(function () {
+      $("#group_info").html(group);
+      $('.create').click(function () {
+        showModal($(this).text());
+      });
+
+      var validator = $("#imageForm").validate({
+        rules: {
+          startMac: {
+            required: true,
+            isMACAddr: true
+          },
+          endMac:  {
+            required: true,
+            isMACAddr: true,
+            BigOne: true
+          },
+          description:  {
+            rangelength: [1, 128]
+          }
+        },
+        messages: {
+          endMac: {
+            BigOne: "起始MAC地址必须不大于结束MAC地址"
+          }
+        },
+        errorClass: "error"
+      });
+
+      $modal.find('.submit').click(function () {
+        var row = {};
+        var data;
+
+        if(validator.form() == false) {
+          return false;
+        }
+
+        $modal.find('input[name]').each(function () {
+          row[$(this).attr('name')] = $(this).val();
+        });
+        data = "startMac=" + row['startMac'] + "&endMac=" + row['endMac'] +
+          "&description=" + row['description'] + "&groupName=" + group +
+          "&_csrf=" + _csrf;
+
+        $.ajax({
+          url: NODE_NEW,
+          type: 'post',
+          data: data,
+          success: function (result) {
+            if(result == "success") {
+              $modal.modal('hide');
+              $table.bootstrapTable('refresh');
+              showAlert('添加成功!', 'success');
+            }
+            else {
+              $modal.modal('hide');
+              showAlert('添加失败!', 'danger');
+            }
+          },
+          error: function () {
+            $modal.modal('hide');
+            showAlert('添加失败!', 'danger');
+          }
+        });
+      });
+    })
+
+    function queryParams(params) {
+      return {
+        page: params.pageNumber,
+        size: params.pageSize,
+        sortName: params.sortName || "nodeCreatedAt",
+        sortOrder: params.sortOrder || "desc",
+        groupName: group,
+        _r: Math.floor(Math.random()*10000)
+      };
+    }
+
+    window.actionEvents = {
+      'click .remove': function (e, value, row) {
+        if (confirm('确定要删除这一项吗?')) {
+          var data = "id=" + row.id + "&_csrf=" + _csrf;
+          $.ajax({
+            url: NODE_DELETE,
+            type: 'post',
+            data: data,
+            success: function (result) {
+              if(result == "success") {
+                $table.bootstrapTable('refresh');
+                showAlert('删除成功!', 'success');
+              }
+              else {
+                showAlert('删除错误!', 'danger');
+              }
+
+            },
+            error: function () {
+              showAlert('删除错误!', 'danger');
+            }
+          })
+        }
+      }
+    };
+
+    function showModal(title, row) {
+      row = row || {
+        startMac: '',
+        endMac: '',
+        description: ''
+      };
+
+      $modal.find('.modal-title').text(title);
+      for (var name in row) {
+        $modal.find('input[name="' + name + '"]').val(row[name]);
+      }
+      $modal.modal('show');
+    }
+
+    function showAlert(title, type) {
+      $alert.attr('class', 'alert alert-' + type || 'success')
+        .html('<i class="glyphicon glyphicon-check"></i> ' + title).show();
+      setTimeout(function () {
+        $alert.hide();
+      }, 3000);
+    }
+
+    function actionFormatter(value) {
+      return [
+        '<a class="remove" href="javascript:" title="删除"><i class="glyphicon glyphicon-remove"></i></a>'
+      ].join('');
+    }
+
+    function formatRecordsPerPage(pageNumber) {
+      return ', ' + pageNumber + ' 每页';
+    };
+
+    function formatShowingRows(pageFrom, pageTo, totalRows) {
+      return '共 ' + totalRows + ' 项记录 ';
+    };
+
+    function getHeight() {
+      return $(window).height() - $('h1').outerHeight(true);
+    };
+
+    function runningFormatter(value, row, index) {
+      return index + 1;
+    }
+
+

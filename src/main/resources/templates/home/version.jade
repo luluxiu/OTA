@@ -1,0 +1,8 @@
+if error == 0
+    |DeviceType: #{ota.getProductModel()}
+    |FwVerison: #{ota.getFirmwareVersion()}
+    |FwName: #{ota.getFirmwareFileName()}
+    |FwMd5: #{ota.getFirmwareMd5()}
+    |#{url}
+else
+    |Invalid md5

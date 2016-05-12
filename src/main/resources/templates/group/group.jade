@@ -1,0 +1,321 @@
+extends ../layout/app
+
+block content
+  h1 设备分组
+  p.toolbar
+    a(class="create btn btn-success", href="javascript:")
+      i(class="glyphicon glyphicon-plus") 新增
+    span.alert
+  table(id="table", class="table-no-bordered"
+    data-show-refresh="true",
+    data-show-columns="true",
+    data-striped="true",
+    data-show-toggle="true",
+    data-query-params-type="",
+    data-query-params="queryParams",
+    data-toolbar=".toolbar",
+    data-page-list="[10, 20, 50]",
+    data-pagination="true",
+    data-side-pagination="server")
+    thead
+      th(data-formatter="runningFormatter") No.
+      th(data-field="id", data-align="center", data-visible="false") ID
+      th(data-field="groupName", data-align="center", data-sortable="true", data-formatter="nameFormatter") 分组名
+      th(data-field="productModel", data-align="center", data-sortable="true") 型号
+      th(data-field="firmwareVersion", data-align="center") 版本号
+      th(data-field="firmwareFileName", data-align="center", data-visible="false") 文件名
+      th(data-field="firmwareMd5", data-align="center", data-visible="false") 文件MD5
+      th(data-field="firmwareUrl", data-align="center", data-formatter="fileUrlFormatter") 文件地址
+      th(data-field="firmwareCreatedAt", data-align="center", data-visible="false", data-sortable="true") 创建
+      th(data-field="firmwareUpdatedAt", data-align="center", data-visible="false", data-sortable="true", data-sort-order="desc") 更新
+      th(data-field="action", data-align="center", data-formatter="actionFormatter", data-events="actionEvents") 操作
+
+block modal
+  .modal-dialog
+    .modal-content
+      form.form-horizontal.m-t.required-validate#imageForm(autocomplete="off", novalidate="novalidate")
+        .modal-header
+          button(type="button", class="close", data-dismiss="modal", aria-label="Close")
+            span(aria-hidden="true") &times;
+          h4.modal-title
+        .modal-body.form-horizontal.m-t.required-validate
+          .form-group(style="margin-top:-15px;")
+            .progress
+              div(class="progress-bar", role="progressbar", aria-valuenow="60",
+                aria-valuemin="0", aria-valuemax="100", style="width: 0%;", id="progressbar")
+                span(class="sr-only", id="pcenttext") 0%
+          .form-group
+            label.col-sm-3.control-label 分组名 :
+            .col-sm-8
+              input(type="text", class="form-control", name="groupName", id="groupName")
+          .form-group
+            label.col-sm-3.control-label 型号 :
+            .col-sm-8
+              input(type="text", class="form-control", name="productModel", id="productModel")
+          .form-group
+            label.col-sm-3.control-label 文件 :
+            .col-sm-8
+              button(id="pickfiles", type="button", class="btn btn-primary") 选择文件
+              label(class="col-sm-8 control-label", id="filelist", style="float:right;")
+          .form-group
+            label.col-sm-3.control-label 版本号 :
+            .col-sm-8
+              input(type="text", class="form-control", name="firmwareVersion", id="firmwareVersion")
+        .modal-footer
+          button(type="button", class="btn btn-default", data-dismiss="modal") 关闭
+          button(type="button", class="btn btn-primary submit") 提交
+
+block scripts
+  script(type='text/javascript').
+    var GROUPS_SHOW = 'group/show/';
+    var GROUPS_NEW = 'group/new/';
+    var GROUPS_DELETE = 'group/delete/';
+    var GROUPS_EDIT = 'group/edit/';
+    var _csrf = '#{_csrf.token}';
+
+    $("title").html("设备分组");
+    var $table = $('#table').bootstrapTable({
+      height: getHeight(),
+      url: GROUPS_SHOW,
+      formatShowingRows : formatShowingRows,
+      formatRecordsPerPage : formatRecordsPerPage
+    });
+
+    $(window).resize(function () {
+      $table.bootstrapTable('resetView', {
+        height: getHeight()
+      });
+    });
+
+    $modal = $('#modal').modal({show: false}),
+    $alert = $('.alert').hide();
+
+    $.validator.setDefaults({
+      onkeyup: function (element, event) {
+        if(event.which === 9 && this.elementValue(element) === "") {
+          return;
+        }
+        else {
+          this.element(element);
+        }
+      }
+    });
+
+    function formatRecordsPerPage(pageNumber) {
+      return ', ' + pageNumber + ' 每页';
+    };
+
+    function formatShowingRows(pageFrom, pageTo, totalRows) {
+      return '共 ' + totalRows + ' 项记录 ';
+    };
+
+    function getHeight() {
+      return $(window).height() - $('h1').outerHeight(true);
+    };
+
+    $(function () {
+      $('.create').click(function () {
+        showModal($(this).text());
+      });
+
+      var title;
+
+      var validator = $("#imageForm").validate({
+        rules: {
+          groupName: {
+            required: true,
+            rangelength: [3, 16]
+          },
+          productModel:  {
+            required: true,
+            rangelength: [2, 16]
+          },
+          firmwareVersion:  {
+            required: true,
+            rangelength: [1, 16]
+          }
+        },
+        errorClass: "error"
+      });
+
+      var uploader = new plupload.Uploader({
+        runtimes : 'html5,flash,silverlight,html4',
+        browse_button : 'pickfiles',
+        url : GROUPS_NEW,
+        flash_swf_url : '#{viewHelper.getAppPath()}/js/Moxie.swf',
+        silverlight_xap_url : '#{viewHelper.getAppPath()}/js/Moxie.xap',
+
+        init: {
+          PostInit: function() {
+
+            $modal.find('.submit').click(function() {
+              var row = {};
+              var rurl;
+
+
+              if(validator.form() == false) {
+                return false;
+              }
+
+              $modal.find('input[name]').each(function () {
+                row[$(this).attr('name')] = $(this).val();
+              });
+
+              if($modal.data('id') && $modal.data('id') >=0) {
+                rurl = GROUPS_EDIT + '?groupName=' + row['groupName'] +
+                  '&productModel=' + row['productModel'] +
+                  '&firmwareVersion=' + row['firmwareVersion'] +
+                  "&id=" + $modal.data('id') + '&_csrf=' + _csrf;
+                title = "修改";
+              }
+              else {
+                rurl = GROUPS_NEW + '?groupName=' + row['groupName'] +
+                  '&productModel=' + row['productModel'] +
+                  '&firmwareVersion=' + row['firmwareVersion'] + '&_csrf=' + _csrf;
+                title = "添加";
+              }
+
+              clearUploadInfo();
+              uploader.setOption("url", rurl);
+              uploader.start();
+              return false;
+            });
+          },
+
+          FilesAdded: function(up, files) {
+            plupload.each(files, function(file) {
+              $('#filelist').html(file.name + ' (' + plupload.formatSize(file.size) + ')');
+            });
+
+            if(uploader.files.length >= 2) {
+              uploader.files.splice(0, 1);
+            }
+          },
+
+          UploadProgress: function(up, file) {
+            $("#progressbar").width(file.percent + "%");
+            $("#pcenttext").html(file.percent + "%");
+          },
+
+          FileUploaded: function(up, file, result) {
+            if(result.response == "success") {
+              $modal.modal('hide');
+              clearUploadInfo();
+              $table.bootstrapTable('refresh');
+              showAlert(title + ' 成功!', 'success');
+            }
+            else {
+              $modal.modal('hide');
+              clearUploadInfo();
+              showAlert(title + ' 失败!', 'danger');
+            }
+          },
+
+          Error: function(up, err) {
+            $modal.modal('hide');
+            clearUploadInfo();
+            showAlert(title + ' 失败!', 'danger');
+          }
+        }
+      });
+
+      uploader.init();
+    });
+
+    function queryParams(params) {
+      return {
+        page: params.pageNumber,
+        size: params.pageSize,
+        sortName: params.sortName || "firmwareUpdatedAt",
+        sortOrder: params.sortOrder || "desc",
+        _r: Math.floor(Math.random()*10000)
+      };
+    }
+
+    function actionFormatter(value) {
+      return [
+        '<a class="update" href="javascript:" title="修改"><i class="glyphicon glyphicon-edit"></i></a>',
+        '<a class="remove" href="javascript:" title="删除"><i class="glyphicon glyphicon-remove"></i></a>',
+      ].join('');
+    }
+
+    function runningFormatter(value, row, index) {
+      return index + 1;
+    }
+
+    window.actionEvents = {
+      'click .update': function (e, value, row) {
+        showModal($(this).attr('title'), row);
+      },
+      'click .remove': function (e, value, row) {
+        if (confirm('确定要删除这一项吗?')) {
+          var rurl = GROUPS_DELETE + '?groupName=' + row['groupName'] +
+            '&productModel=' + row['productModel'] +
+            '&firmwareVersion=' + row['firmwareVersion'] +
+            "&id=" + row['id'] + '&_csrf=' + _csrf;
+          $.ajax({
+            url: rurl,
+            type: 'post',
+            success: function (result) {
+              if(result == "success") {
+                $table.bootstrapTable('refresh');
+                showAlert('删除成功!', 'success');
+              }
+              else {
+                showAlert('删除错误!', 'danger');
+              }
+            },
+            error: function () {
+              showAlert('删除错误!', 'danger');
+            }
+          })
+        }
+      }
+    };
+
+    function showModal(title, row) {
+      row = row || {
+        groupName: '',
+        productModel: '',
+        firmwareVersion: ''
+      };
+
+      if(typeof(row.id) == "undefined") {
+        $modal.data('id', -1);
+      }
+      else if(row.id >= 0){
+        $modal.data('id', row.id);
+        $modal.find('input[name]').each(function () {
+          //console.log($(this).attr('name') + " - " + $(this).val());
+          $(this).val("");
+        });
+      }
+
+      $modal.find('.modal-title').text(title);
+      for (var name in row) {
+        $modal.find('input[name="' + name + '"]').val(row[name]);
+      }
+      $modal.modal('show');
+    };
+
+    function showAlert(title, type) {
+      $alert.attr('class', 'alert alert-' + type || 'success')
+        .html('<i class="glyphicon glyphicon-check"></i> ' + title).show();
+      setTimeout(function () {
+        $alert.hide();
+      }, 3000);
+    };
+
+    function nameFormatter(value) {
+      return '<a href="node/?group=' + value + '" target="_blank">' + value + '</a>';
+    };
+
+    function fileUrlFormatter(value) {
+      return '<a href="' + value + '" target="_blank">' + value + '</a>';
+    }
+
+    function clearUploadInfo() {
+      $('#filelist').empty();
+      $("#progressbar").width("0%");
+      $("#pcenttext").html("0%");
+    };

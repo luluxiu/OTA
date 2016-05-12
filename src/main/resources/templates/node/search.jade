@@ -1,0 +1,81 @@
+doctype html
+html
+  head
+    title Search
+    meta(charset='utf-8')
+    link(rel='stylesheet', href='#{viewHelper.getAppPath()}/css/bootstrap.min.css')
+    link(rel='stylesheet', href='#{viewHelper.getAppPath()}/css/bootstrap-table.css')
+    script(src='#{viewHelper.getAppPath()}/js/jquery.min.js')
+    script(src='#{viewHelper.getAppPath()}/js/bootstrap.min.js')
+    script(src='#{viewHelper.getAppPath()}/js/bootstrap-table.js')
+  body
+    .container
+      h1 查找
+      table#table.table-no-bordered(data-search='true',
+        data-search-time-out='1000', data-trim-on-search='true',
+        data-search-align='left', data-search-on-enter-key='true',
+        data-search-validator='searchValidator', data-show-columns='true',
+        data-striped='true', data-toolbar='.toolbar', data-url='#{viewHelper.getAppPath()}/node/check',
+        data-init-server='false', data-side-pagination='server',
+        data-page-list='[10, 20, 50]', data-pagination='true',
+        data-query-params-type='', data-query-params='queryParams')
+        thead
+          th(data-formatter='runningFormatter')  No.
+          th(data-field='id', data-align='center', data-visible='false')  ID
+          th(data-field='groupName', data-align='center', data-sortable='true')  分组名
+          th(data-field='productModel', data-align='center', data-sortable='true')  型号
+          th(data-field='firmwareVersion', data-align='center')  版本号
+          th(data-field='firmwareFileName', data-align='center', data-visible='false')  文件名
+          th(data-field='firmwareMd5', data-align='center', data-visible='false')  文件MD5
+          th(data-field='firmwareUrl', data-align='center')  文件地址
+          th(data-field='firmwareCreatedAt', data-align='center', data-visible='false', data-sortable='true')  创建
+          th(data-field='firmwareUpdatedAt', data-align='center', data-visible='false', data-sortable='true', data-sort-order='desc')  更新
+    script.
+      var $table = $('#table').bootstrapTable({
+        height: getHeight(),
+        formatShowingRows : formatShowingRows,
+        formatRecordsPerPage : formatRecordsPerPage,
+        onSearchValidator:    function (value) {
+            var tel = /^[A-Fa-f0-9]{2}(:[A-Fa-f0-9]{2}){5}$/;
+            if(tel.test(value)) {
+              return true;
+            }
+            else {
+              alert("[" + value + "] 非有效MAC地址 !");
+              return false;
+            }
+          }
+      });
+
+      $(window).resize(function () {
+        $table.bootstrapTable('resetView', {
+          height: getHeight()
+        });
+      });
+
+      function formatRecordsPerPage(pageNumber) {
+        return ', ' + pageNumber + ' 每页';
+      };
+
+      function formatShowingRows(pageFrom, pageTo, totalRows) {
+        return '共 ' + totalRows + ' 项记录 ';
+      };
+
+      function getHeight() {
+        return $(window).height() - $('h1').outerHeight(true);
+      };
+
+      function queryParams(params) {
+        return {
+          search: $("input[name='search']").val(),
+          page: params.pageNumber,
+          size: params.pageSize,
+          sortName: params.sortName || "firmwareUpdatedAt",
+          sortOrder: params.sortOrder || "desc",
+          _r: Math.floor(Math.random()*10000)
+        };
+      }
+
+      function runningFormatter(value, row, index) {
+        return index + 1;
+      }
